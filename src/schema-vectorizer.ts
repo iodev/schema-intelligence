@@ -6,7 +6,6 @@
 
 import { QdrantClient } from '@qdrant/js-client-rest';
 import pino from 'pino';
-import Anthropic from '@anthropic-ai/sdk';
 import { createHash } from 'crypto';
 import { SchemaMetadata } from './types.js';
 
@@ -23,18 +22,11 @@ export class SchemaVectorizer {
     private logger: pino.Logger;
     private qdrant: QdrantClient;
     private config: SchemaVectorizerConfig;
-    private anthropic?: Anthropic;
 
     constructor(config: SchemaVectorizerConfig) {
         this.logger = pino({ name: 'schema-vectorizer' });
         this.config = config;
         this.qdrant = new QdrantClient({ url: config.qdrantUrl });
-
-        if (config.anthropicApiKey) {
-            this.anthropic = new Anthropic({
-                apiKey: config.anthropicApiKey,
-            });
-        }
     }
 
     /**
