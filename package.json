@@ -1,0 +1,56 @@
+{
+  "name": "@caelum/schema-intelligence",
+  "version": "1.0.0",
+  "description": "Automated database schema documentation and vectorization for PostgreSQL, MongoDB, Redis, and InfluxDB",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "node --test tests/*.test.js",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "keywords": [
+    "database",
+    "schema",
+    "documentation",
+    "vectorization",
+    "postgresql",
+    "mongodb",
+    "redis",
+    "influxdb",
+    "qdrant",
+    "semantic-search",
+    "metadata",
+    "crawler"
+  ],
+  "author": "Caelum Team",
+  "license": "MIT",
+  "dependencies": {
+    "@influxdata/influxdb-client": "^1.35.0",
+    "@influxdata/influxdb-client-apis": "^1.35.0",
+    "@qdrant/js-client-rest": "^1.11.0",
+    "mongodb": "^6.10.0",
+    "pg": "^8.13.1",
+    "pino": "^9.5.0",
+    "redis": "^4.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/pg": "^8.11.10",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/iodev/schema-intelligence.git"
+  },
+  "bugs": {
+    "url": "https://github.com/iodev/schema-intelligence/issues"
+  },
+  "homepage": "https://github.com/iodev/schema-intelligence#readme"
+}
