@@ -1,16 +1,38 @@
 {
-  "name": "@caelum/schema-intelligence",
-  "version": "1.0.0",
-  "description": "Automated database schema documentation and vectorization for PostgreSQL, MongoDB, Redis, and InfluxDB",
+  "name": "schema-intelligence",
+  "version": "0.1.0",
+  "description": "Crawl, document, and semantically search your database schemas across PostgreSQL, MySQL, MongoDB, Redis, and InfluxDB",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "sideEffects": false,
+  "bin": {
+    "schema-intelligence": "./dist/cli.js",
+    "si": "./dist/cli.js"
+  },
+  "files": [
+    "dist/",
+    "openapi.yaml",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "test": "node --test tests/*.test.js",
+    "test": "tsc -p tsconfig.test.json && node --test dist-test/tests/*.test.js",
+    "test:integration": "RUN_INTEGRATION_TESTS=1 tsc -p tsconfig.test.json && node --test dist-test/tests/integration.test.js",
+    "lint": "tsc --noEmit",
+    "start": "node dist/server-entrypoint.js",
+    "mcp": "node dist/mcp-entrypoint.js",
+    "ci": "npm run lint && npm run build && npm test",
     "clean": "rm -rf dist",
-    "prepublishOnly": "npm run clean && npm run build"
+    "prepublishOnly": "npm run clean && npm run build && npm run lint"
   },
   "keywords": [
     "database",
@@ -18,6 +40,7 @@
     "documentation",
     "vectorization",
     "postgresql",
+    "mysql",
     "mongodb",
     "redis",
     "influxdb",
@@ -31,19 +54,41 @@
   "dependencies": {
     "@influxdata/influxdb-client": "^1.35.0",
     "@influxdata/influxdb-client-apis": "^1.35.0",
+    "@modelcontextprotocol/sdk": "^1.27.1",
     "@qdrant/js-client-rest": "^1.11.0",
+    "js-yaml": "^4.1.1",
     "mongodb": "^6.10.0",
+    "mysql2": "^3.18.2",
     "pg": "^8.13.1",
     "pino": "^9.5.0",
     "redis": "^4.7.0"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.10.2",
     "@types/pg": "^8.11.10",
+    "openai": "^6.25.0",
     "typescript": "^5.7.2"
   },
+  "peerDependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
+    "openai": "^6.25.0"
+  },
+  "peerDependenciesMeta": {
+    "openai": {
+      "optional": true
+    },
+    "@anthropic-ai/sdk": {
+      "optional": true
+    }
+  },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "repository": {
     "type": "git",
