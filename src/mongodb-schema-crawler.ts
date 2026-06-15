@@ -101,13 +101,13 @@ export class MongoDBSchemaCrawler {
     /**
      * Analyze document structure to infer schema
      */
-    private analyzeDocumentStructure(documents: any[]): MongoFieldSchema[] {
+    private analyzeDocumentStructure(documents: Record<string, unknown>[]): MongoFieldSchema[] {
         if (documents.length === 0) return [];
 
         const fieldStats = new Map<string, {
             types: Set<string>;
             nullable: boolean;
-            examples: any[];
+            examples: unknown[];
         }>();
 
         // Analyze each document
@@ -134,9 +134,13 @@ export class MongoDBSchemaCrawler {
      * Recursively analyze document fields
      */
     private analyzeDocument(
-        obj: any,
+        obj: Record<string, unknown>,
         prefix: string,
-        fieldStats: Map<string, any>
+        fieldStats: Map<string, {
+            types: Set<string>;
+            nullable: boolean;
+            examples: unknown[];
+        }>
     ): void {
         for (const [key, value] of Object.entries(obj)) {
             const fieldPath = prefix ? `${prefix}.${key}` : key;
@@ -164,7 +168,7 @@ export class MongoDBSchemaCrawler {
 
                 // Recursively analyze nested objects (but not arrays of objects)
                 if (type === 'object' && !Array.isArray(value)) {
-                    this.analyzeDocument(value, fieldPath, fieldStats);
+                    this.analyzeDocument(value as Record<string, unknown>, fieldPath, fieldStats);
                 }
             }
         }
@@ -173,11 +177,11 @@ export class MongoDBSchemaCrawler {
     /**
      * Determine MongoDB BSON type
      */
-    private getMongoType(value: any): string {
+    private getMongoType(value: unknown): string {
         if (value === null) return 'null';
         if (Array.isArray(value)) return 'array';
         if (value instanceof Date) return 'date';
-        if (typeof value === 'object' && value._bsontype === 'ObjectID') return 'objectId';
+        if (typeof value === 'object' && value !== null && '_bsontype' in value && (value as Record<string, unknown>)._bsontype === 'ObjectID') return 'objectId';
         if (typeof value === 'boolean') return 'boolean';
         if (typeof value === 'number') {
             return Number.isInteger(value) ? 'int' : 'double';
@@ -190,10 +194,10 @@ export class MongoDBSchemaCrawler {
     /**
      * Get most common value from examples
      */
-    private getMostCommonValue(examples: any[]): any {
+    private getMostCommonValue(examples: unknown[]): unknown {
         if (examples.length === 0) return undefined;
 
-        const counts = new Map<string, { value: any; count: number }>();
+        const counts = new Map<string, { value: unknown; count: number }>();
         for (const example of examples) {
             const key = JSON.stringify(example);
             if (!counts.has(key)) {
@@ -253,7 +257,6 @@ export class MongoDBSchemaCrawler {
                     'Extracted collection schema'
                 );
             } catch (error) {
-                console.error(`[DEBUG] Failed to extract ${collectionName}:`, error);
                 this.logger.error(
                     {
                         collectionName,

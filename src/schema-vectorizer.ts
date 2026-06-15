@@ -12,10 +12,22 @@ import { SchemaMetadata } from './types.js';
 export interface SchemaVectorizerConfig {
     qdrantUrl: string;
     qdrantCollection: string;
-    embeddingModel?: 'voyage' | 'openai' | 'anthropic';
+    embeddingModel?: 'voyage' | 'openai' | 'anthropic' | 'simple';
     voyageApiKey?: string;
     openaiApiKey?: string;
     anthropicApiKey?: string;
+}
+
+interface StoredSchemaPayload {
+    schemaId: string;
+    type: string;
+    database: string;
+    objectName: string;
+    fullName: string;
+    description: string;
+    schema: unknown;
+    lastScanned: string;
+    checksum: string;
 }
 
 export class SchemaVectorizer {
@@ -241,15 +253,28 @@ export class SchemaVectorizer {
      */
     async searchSchemas(
         query: string,
-        limit: number = 5
+        limit: number = 5,
+        database?: string
     ): Promise<Array<{
         id: string;
         score: number;
-        metadata: any;
+        metadata: StoredSchemaPayload;
     }>> {
         try {
             // Generate embedding for query
             const queryEmbedding = await this.generateEmbedding(query);
+
+            // Build filter for database-scoped search
+            const filter = database
+                ? {
+                    must: [
+                        {
+                            key: 'database' as const,
+                            match: { value: database },
+                        },
+                    ],
+                }
+                : undefined;
 
             // Search Qdrant
             const results = await this.qdrant.search(
@@ -258,14 +283,18 @@ export class SchemaVectorizer {
                     vector: queryEmbedding,
                     limit,
                     with_payload: true,
+                    ...(filter ? { filter } : {}),
                 }
             );
 
-            return results.map(result => ({
-                id: (result.payload as any).schemaId || (result.id as string), // Use schemaId from payload
-                score: result.score,
-                metadata: result.payload,
-            }));
+            return results.map(result => {
+                const payload = result.payload as unknown as StoredSchemaPayload;
+                return {
+                    id: payload.schemaId || String(result.id),
+                    score: result.score,
+                    metadata: payload,
+                };
+            });
         } catch (error) {
             this.logger.error({ error, query }, 'Schema search failed');
             throw error;
@@ -275,7 +304,7 @@ export class SchemaVectorizer {
     /**
      * Get schema by exact ID
      */
-    async getSchemaById(id: string): Promise<any | null> {
+    async getSchemaById(id: string): Promise<Record<string, unknown> | null> {
         try {
             const uuid = this.generateUUID(id);
             const result = await this.qdrant.retrieve(
@@ -287,7 +316,7 @@ export class SchemaVectorizer {
                 }
             );
 
-            return result.length > 0 ? result[0].payload : null;
+            return result.length > 0 ? (result[0].payload as Record<string, unknown> | null) ?? null : null;
         } catch (error) {
             this.logger.error({ error, id }, 'Failed to retrieve schema');
             return null;
@@ -315,7 +344,7 @@ export class SchemaVectorizer {
     /**
      * Get all schemas for a specific database
      */
-    async getDatabaseSchemas(database: string): Promise<any[]> {
+    async getDatabaseSchemas(database: string): Promise<Record<string, unknown>[]> {
         try {
             const results = await this.qdrant.scroll(
                 this.config.qdrantCollection,
@@ -334,7 +363,9 @@ export class SchemaVectorizer {
                 }
             );
 
-            return results.points.map(point => point.payload);
+            return results.points
+                .map(point => point.payload)
+                .filter((payload): payload is Record<string, unknown> => payload != null);
         } catch (error) {
             this.logger.error({ error, database }, 'Failed to get database schemas');
             throw error;
@@ -365,7 +396,7 @@ export class SchemaVectorizer {
 
             const databases: Record<string, number> = {};
             for (const point of allSchemas.points) {
-                const db = (point.payload as any).database;
+                const db = (point.payload as unknown as StoredSchemaPayload).database;
                 databases[db] = (databases[db] || 0) + 1;
             }
 

@@ -8,23 +8,10 @@ import { InfluxDB, QueryApi } from '@influxdata/influxdb-client';
 import { BucketsAPI } from '@influxdata/influxdb-client-apis';
 import { createHash } from 'crypto';
 import pino from 'pino';
-import { SchemaMetadata } from './types.js';
+import { SchemaMetadata, InfluxMeasurement, InfluxBucketSchema } from './types.js';
 
-export interface InfluxMeasurement {
-    name: string;
-    tags: string[];
-    fields: string[];
-    count?: number;
-}
-
-export interface InfluxBucketSchema {
-    database: string;
-    bucketName: string;
-    orgName: string;
-    retentionPeriod?: number; // in seconds
-    measurements: InfluxMeasurement[];
-    lastScanned: Date;
-}
+// Re-export types from types.ts for backwards compatibility
+export type { InfluxMeasurement, InfluxBucketSchema };
 
 export class InfluxDBBucketCrawler {
     private logger: pino.Logger;
@@ -236,19 +223,18 @@ export class InfluxDBBucketCrawler {
 
                     metadata.push({
                         id: `${dbAlias}.${bucket.name}`,
-                        type: 'redis', // Reusing redis type since types.ts only has those options
+                        type: 'influxdb',
                         database: dbAlias,
                         objectName: bucket.name,
                         fullName: bucket.name,
                         description,
-                        schema: bucketSchema as any,
+                        schema: bucketSchema,
                         lastScanned: new Date(),
                         checksum,
                     });
 
                     this.logger.debug({ bucketName: bucket.name }, 'Extracted bucket schema');
                 } catch (error) {
-                    console.error(`[DEBUG] Failed to extract bucket ${bucket.name}:`, error);
                     this.logger.error(
                         {
                             bucketName: bucket.name,
@@ -265,7 +251,6 @@ export class InfluxDBBucketCrawler {
                 'InfluxDB bucket crawl complete'
             );
         } catch (error) {
-            console.error(`[DEBUG] Failed to crawl InfluxDB ${dbAlias}:`, error);
             this.logger.error(
                 {
                     dbAlias,

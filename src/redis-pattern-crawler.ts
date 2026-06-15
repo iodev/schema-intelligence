@@ -4,30 +4,19 @@
  * Documents Redis key patterns and data structures
  */
 
-import { createClient, RedisClientType } from 'redis';
+import { createClient } from 'redis';
 import { createHash } from 'crypto';
 import pino from 'pino';
-import { SchemaMetadata } from './types.js';
+import { SchemaMetadata, RedisKeyPattern, RedisPatternSchema } from './types.js';
 
-export interface RedisKeyPattern {
-    pattern: string; // e.g., "cache:*", "session:user:*"
-    type: string; // string, hash, list, set, zset
-    exampleKeys: string[];
-    count: number;
-    ttl?: number; // Average TTL in seconds
-    sampleValue?: any;
-}
+// Re-export types from types.ts for backwards compatibility
+export type { RedisKeyPattern, RedisPatternSchema };
 
-export interface RedisPatternSchema {
-    database: string;
-    patterns: RedisKeyPattern[];
-    totalKeys: number;
-    lastScanned: Date;
-}
+type RedisClient = ReturnType<typeof createClient>;
 
 export class RedisPatternCrawler {
     private logger: pino.Logger;
-    private clients: Map<string, any> = new Map();
+    private clients: Map<string, RedisClient> = new Map();
 
     constructor() {
         this.logger = pino({ name: 'redis-pattern-crawler' });
@@ -60,7 +49,7 @@ export class RedisPatternCrawler {
 
         // Scan keys using SCAN command (non-blocking)
         do {
-            const result = await client.scan(cursor.toString());
+            const result = await client.scan(cursor);
 
             cursor = typeof result.cursor === 'string' ? parseInt(result.cursor) : result.cursor;
             const keys = result.keys;
@@ -157,13 +146,13 @@ export class RedisPatternCrawler {
      * Get sample value for a key based on its type
      */
     private async getSampleValue(
-        client: any,
+        client: RedisClient,
         key: string,
         type: string
-    ): Promise<any> {
+    ): Promise<unknown> {
         try {
             switch (type) {
-                case 'string':
+                case 'string': {
                     const strValue = await client.get(key);
                     if (!strValue) return null;
                     const strVal = String(strValue);
@@ -173,28 +162,33 @@ export class RedisPatternCrawler {
                     } catch {
                         return strVal.substring(0, 100);
                     }
+                }
 
-                case 'hash':
+                case 'hash': {
                     const hashValue = await client.hGetAll(key);
                     // Return first few fields
                     const hashKeys = Object.keys(hashValue).slice(0, 5);
-                    const sample: any = {};
+                    const sample: Record<string, string> = {};
                     for (const k of hashKeys) {
                         sample[k] = hashValue[k];
                     }
                     return sample;
+                }
 
-                case 'list':
+                case 'list': {
                     const listValue = await client.lRange(key, 0, 2);
                     return listValue;
+                }
 
-                case 'set':
+                case 'set': {
                     const setValue = await client.sMembers(key);
                     return Array.from(setValue).slice(0, 5);
+                }
 
-                case 'zset':
+                case 'zset': {
                     const zsetValue = await client.zRangeWithScores(key, 0, 2);
                     return zsetValue;
+                }
 
                 default:
                     return null;
@@ -227,7 +221,7 @@ export class RedisPatternCrawler {
                 objectName: 'redis_patterns',
                 fullName: 'redis_patterns',
                 description,
-                schema: patternSchema as any,
+                schema: patternSchema,
                 lastScanned: new Date(),
                 checksum,
             };
@@ -243,7 +237,6 @@ export class RedisPatternCrawler {
 
             return [metadata];
         } catch (error) {
-            console.error(`[DEBUG] Failed to crawl Redis ${dbAlias}:`, error);
             this.logger.error(
                 {
                     dbAlias,

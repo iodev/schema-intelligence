@@ -28,7 +28,7 @@ export class PostgreschemaCrawler {
      */
     async connect(connectionString: string, alias: string): Promise<void> {
         // Parse connection string to handle auth-host=trust cases
-        let config: any;
+        let config: { connectionString: string } | { host: string; port: number; database: string; user: string; password: string };
 
         // If connection string doesn't have a password (e.g., user@host), don't use connectionString
         if (connectionString.match(/\/\/[^:]+@/)) {
@@ -272,7 +272,7 @@ export class PostgreschemaCrawler {
 
         return result.rows.map(row => ({
             name: row.constraint_name,
-            type: row.constraint_type as any,
+            type: row.constraint_type as TableConstraint['type'],
             columns: row.columns,
             definition: row.definition,
         }));
@@ -364,7 +364,6 @@ export class PostgreschemaCrawler {
                         'Extracted table schema'
                     );
                 } catch (error) {
-                    console.error(`[DEBUG] Failed to extract ${schema}.${tableName}:`, error);
                     this.logger.error(
                         {
                             schema,
