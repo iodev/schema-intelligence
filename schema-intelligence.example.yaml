@@ -1,0 +1,26 @@
+# Schema Intelligence Configuration
+#
+# Copy this file to schema-intelligence.yaml and update with your settings.
+#
+# Supported database types: postgresql, mongodb, redis, influxdb
+
+databases:
+  - type: postgresql
+    connectionString: postgresql://user:pass@localhost:5432/mydb
+  - type: mongodb
+    connectionString: mongodb://localhost:27017/mydb
+  - type: redis
+    connectionString: redis://localhost:6379
+  # - type: influxdb
+  #   connectionString: http://localhost:8086?org=myorg&token=mytoken
+
+qdrant:
+  url: http://localhost:6333
+  collection: schema-intelligence
+
+embedding:
+  model: simple  # simple | voyage | openai
+  apiKey: ""     # required for voyage/openai
+
+# Scan interval in minutes. 0 = single scan (no periodic rescanning)
+scanInterval: 0

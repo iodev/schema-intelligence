@@ -1,0 +1,477 @@
+openapi: 3.1.0
+info:
+  title: Schema Intelligence API
+  description: >
+    REST API for the Schema Intelligence system — automated database schema
+    crawling, vectorization, and semantic search across PostgreSQL, MySQL,
+    MongoDB, Redis, and InfluxDB.
+  version: 1.0.0
+  contact:
+    name: Caelum Team
+    url: https://github.com/iodev/schema-intelligence
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+
+paths:
+  /api/v1/health:
+    get:
+      summary: Health check
+      description: Returns the health status of the server including Qdrant connectivity, database count, and last scan time.
+      operationId: getHealth
+      tags: [Health]
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+        "503":
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /api/v1/status:
+    get:
+      summary: Detailed status
+      description: Returns detailed status of all databases including schema counts.
+      operationId: getStatus
+      tags: [Health]
+      responses:
+        "200":
+          description: Status information
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/openapi.json:
+    get:
+      summary: OpenAPI specification
+      description: Returns this OpenAPI specification as JSON.
+      operationId: getOpenApiSpec
+      tags: [Health]
+      responses:
+        "200":
+          description: OpenAPI spec as JSON
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/v1/scan:
+    post:
+      summary: Trigger a full scan
+      description: >
+        Triggers a full scan of all configured databases (or a subset if
+        database names are provided in the request body). Returns a summary
+        of discovered schemas.
+      operationId: triggerScan
+      tags: [Schema Operations]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScanRequest"
+      responses:
+        "200":
+          description: Scan completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanResponse"
+        "500":
+          description: Scan failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/schemas:
+    get:
+      summary: List all schemas
+      description: Returns a paginated list of all discovered schemas, optionally filtered by database or type.
+      operationId: listSchemas
+      tags: [Schema Operations]
+      parameters:
+        - name: database
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by database name
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [postgresql, mysql, mongodb, redis, influxdb]
+          description: Filter by database type
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+            minimum: 0
+          description: Maximum number of results to return
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+          description: Number of results to skip
+      responses:
+        "200":
+          description: List of schemas
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SchemaListResponse"
+        "400":
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/schemas/{schemaId}:
+    get:
+      summary: Get schema details
+      description: >
+        Returns details for a specific schema identified by its ID
+        (format: database.schema.table).
+      operationId: getSchema
+      tags: [Schema Operations]
+      parameters:
+        - name: schemaId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: "Schema ID in the format database.schema.table"
+          example: "mydb.public.users"
+      responses:
+        "200":
+          description: Schema details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SchemaDetail"
+        "400":
+          description: Invalid schema ID format
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Schema not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/databases:
+    get:
+      summary: List all databases
+      description: Returns a list of all configured databases with their schema counts.
+      operationId: listDatabases
+      tags: [Schema Operations]
+      responses:
+        "200":
+          description: List of databases
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatabaseListResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/databases/{database}/schemas:
+    get:
+      summary: Schemas for a specific database
+      description: Returns all schemas belonging to a specific database.
+      operationId: getDatabaseSchemas
+      tags: [Schema Operations]
+      parameters:
+        - name: database
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Database name
+      responses:
+        "200":
+          description: Schemas for the database
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatabaseSchemasResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/search:
+    post:
+      summary: Semantic search
+      description: >
+        Performs a semantic search across all indexed schemas using the
+        provided natural-language query.
+      operationId: searchSchemas
+      tags: [Search]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SearchRequest"
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResponse"
+        "400":
+          description: Missing or invalid search query
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error, status]
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+        status:
+          type: integer
+          description: HTTP status code
+        details:
+          type: object
+          description: Additional error details (only in non-production environments)
+
+    HealthResponse:
+      type: object
+      required: [status, qdrant, databaseCount, totalSchemas, lastScan]
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+        qdrant:
+          type: string
+          enum: [connected, disconnected]
+        databaseCount:
+          type: integer
+        totalSchemas:
+          type: integer
+        lastScan:
+          type: string
+          format: date-time
+          nullable: true
+
+    StatusResponse:
+      type: object
+      required: [totalSchemas, databases, lastScan]
+      properties:
+        totalSchemas:
+          type: integer
+        databases:
+          type: object
+          additionalProperties:
+            type: integer
+          description: "Map of database name to schema count"
+        lastScan:
+          type: string
+          format: date-time
+          nullable: true
+
+    ScanRequest:
+      type: object
+      properties:
+        databases:
+          type: array
+          items:
+            type: string
+          description: Optional list of database names to scan. If omitted, all databases are scanned.
+
+    ScanResponse:
+      type: object
+      required: [message, totalSchemas, databases]
+      properties:
+        message:
+          type: string
+        totalSchemas:
+          type: integer
+        databases:
+          type: object
+          additionalProperties:
+            type: integer
+
+    SchemaListResponse:
+      type: object
+      required: [schemas, total, limit, offset]
+      properties:
+        schemas:
+          type: array
+          items:
+            $ref: "#/components/schemas/SchemaDetail"
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    SchemaDetail:
+      type: object
+      properties:
+        schemaId:
+          type: string
+        type:
+          type: string
+          enum: [postgresql, mysql, mongodb, redis, influxdb]
+        database:
+          type: string
+        objectName:
+          type: string
+        fullName:
+          type: string
+        description:
+          type: string
+        schema:
+          type: object
+          description: The full schema metadata (varies by database type)
+        lastScanned:
+          type: string
+          format: date-time
+        checksum:
+          type: string
+
+    DatabaseListResponse:
+      type: object
+      required: [databases]
+      properties:
+        databases:
+          type: array
+          items:
+            type: object
+            required: [name, schemaCount]
+            properties:
+              name:
+                type: string
+              schemaCount:
+                type: integer
+
+    DatabaseSchemasResponse:
+      type: object
+      required: [database, schemas, total]
+      properties:
+        database:
+          type: string
+        schemas:
+          type: array
+          items:
+            $ref: "#/components/schemas/SchemaDetail"
+        total:
+          type: integer
+
+    SearchRequest:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+          description: Natural-language search query
+        limit:
+          type: integer
+          default: 5
+          minimum: 1
+          description: Maximum number of results
+        database:
+          type: string
+          description: Optional database name filter
+
+    SearchResult:
+      type: object
+      required: [id, score, database, table, description, schema]
+      properties:
+        id:
+          type: string
+        score:
+          type: number
+          format: float
+        database:
+          type: string
+        table:
+          type: string
+        description:
+          type: string
+        schema:
+          type: object
+
+    SearchResponse:
+      type: object
+      required: [query, results, total]
+      properties:
+        query:
+          type: string
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchResult"
+        total:
+          type: integer
+
+tags:
+  - name: Health
+    description: Health check and status endpoints
+  - name: Schema Operations
+    description: CRUD operations for database schemas
+  - name: Search
+    description: Semantic search across schemas

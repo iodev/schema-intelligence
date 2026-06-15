@@ -1,0 +1,47 @@
+# Schema Intelligence — Docker Configuration
+#
+# This is an example config for running inside Docker (via docker-compose).
+# Mount this file to /app/schema-intelligence.yaml in the container.
+#
+# Environment variables override these values when set:
+#   SI_QDRANT_URL          — overrides qdrant.url
+#   SI_QDRANT_COLLECTION   — overrides qdrant.collection
+#   SI_PORT                — overrides server.port
+#   SI_HOST                — overrides server.host
+
+databases:
+  # When running in Docker, use host.docker.internal to reach databases
+  # on the Docker host machine. Adjust hostnames for containers on the
+  # same Docker network (e.g. service name from docker-compose).
+  - type: postgresql
+    connectionString: postgresql://user:pass@host.docker.internal:5432/mydb
+
+  - type: mongodb
+    connectionString: mongodb://host.docker.internal:27017/mydb
+
+  # - type: mysql
+  #   connectionString: mysql://user:pass@host.docker.internal:3306/mydb
+
+  # - type: redis
+  #   connectionString: redis://host.docker.internal:6379
+
+  # - type: influxdb
+  #   connectionString: http://host.docker.internal:8086?org=myorg&token=mytoken
+
+qdrant:
+  # Overridden by SI_QDRANT_URL env var in docker-compose.yml
+  url: http://qdrant:6333
+  collection: schema-intelligence
+
+embedding:
+  # simple = built-in hashing (no external API needed)
+  # voyage | openai = requires apiKey
+  model: simple
+  apiKey: ""
+
+# Scan interval in minutes. 0 = single scan on startup (no periodic rescanning)
+scanInterval: 0
+
+server:
+  port: 3000
+  host: 0.0.0.0
