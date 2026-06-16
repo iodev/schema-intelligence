@@ -32,6 +32,7 @@
     "mcp": "node dist/mcp-entrypoint.js",
     "ci": "npm run lint && npm run build && npm test",
     "clean": "rm -rf dist",
+    "prepare": "[ -d dist ] || npm run build",
     "prepublishOnly": "npm run clean && npm run build && npm run lint"
   },
   "keywords": [
