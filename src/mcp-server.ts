@@ -83,9 +83,9 @@ export class SchemaIntelligenceMCPServer {
     // -----------------------------------------------------------------------
 
     private registerTools(): void {
-        // 1. search_schemas
+        // 1. search_database_schemas
         this.mcpServer.tool(
-            'search_schemas',
+            'search_database_schemas',
             'Semantic search across all database schemas',
             {
                 query: z.string().describe('Search query text'),
@@ -110,9 +110,9 @@ export class SchemaIntelligenceMCPServer {
             },
         );
 
-        // 2. get_schema
+        // 2. get_database_schema
         this.mcpServer.tool(
-            'get_schema',
+            'get_database_schema',
             'Get detailed schema for a specific table/collection',
             {
                 database: z.string().describe('Database name'),
@@ -172,9 +172,9 @@ export class SchemaIntelligenceMCPServer {
             },
         );
 
-        // 4. list_schemas
+        // 4. list_database_schemas
         this.mcpServer.tool(
-            'list_schemas',
+            'list_database_schemas',
             'List all schemas in a database',
             {
                 database: z.string().describe('Database name'),
@@ -300,10 +300,10 @@ export class SchemaIntelligenceMCPServer {
             },
         );
 
-        // 7. scan_database
+        // 7. rescan_schemas
         this.mcpServer.tool(
-            'scan_database',
-            'Trigger a schema scan',
+            'rescan_schemas',
+            'Trigger a full rescan of all databases to detect schema changes',
             {
                 databases: z
                     .array(z.string())
@@ -327,6 +327,24 @@ export class SchemaIntelligenceMCPServer {
                                 null,
                                 2,
                             ),
+                        },
+                    ],
+                };
+            },
+        );
+
+        // 8. get_schema_stats
+        this.mcpServer.tool(
+            'get_schema_stats',
+            'Get service statistics: total schemas indexed and per-database counts',
+            {},
+            async () => {
+                const stats = await this.service.getStats();
+                return {
+                    content: [
+                        {
+                            type: 'text' as const,
+                            text: JSON.stringify(stats, null, 2),
                         },
                     ],
                 };

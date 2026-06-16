@@ -255,24 +255,25 @@ describe('MCP Server – tool registration', () => {
         await cleanup();
     });
 
-    it('should register all 7 tools', async () => {
+    it('should register all 8 tools', async () => {
         const result = await client.listTools();
         const toolNames = result.tools.map((t) => t.name).sort();
 
         assert.deepEqual(toolNames, [
+            'get_database_schema',
             'get_recent_changes',
             'get_relationships',
-            'get_schema',
+            'get_schema_stats',
+            'list_database_schemas',
             'list_databases',
-            'list_schemas',
-            'scan_database',
-            'search_schemas',
+            'rescan_schemas',
+            'search_database_schemas',
         ]);
     });
 
-    it('search_schemas should have correct input schema', async () => {
+    it('search_database_schemas should have correct input schema', async () => {
         const result = await client.listTools();
-        const tool = result.tools.find((t) => t.name === 'search_schemas');
+        const tool = result.tools.find((t) => t.name === 'search_database_schemas');
         assert.ok(tool);
         assert.equal(tool.inputSchema.type, 'object');
         const props = tool.inputSchema.properties as Record<string, Record<string, unknown>>;
@@ -281,9 +282,9 @@ describe('MCP Server – tool registration', () => {
         assert.ok(props.database);
     });
 
-    it('get_schema should have correct input schema', async () => {
+    it('get_database_schema should have correct input schema', async () => {
         const result = await client.listTools();
-        const tool = result.tools.find((t) => t.name === 'get_schema');
+        const tool = result.tools.find((t) => t.name === 'get_database_schema');
         assert.ok(tool);
         const props = tool.inputSchema.properties as Record<string, Record<string, unknown>>;
         assert.ok(props.database);
@@ -302,9 +303,9 @@ describe('MCP Server – tool registration', () => {
     });
 });
 
-// ── Tests: search_schemas tool handler ──────────────────────────────────────
+// ── Tests: search_database_schemas tool handler ──────────────────────────────────────
 
-describe('MCP Server – search_schemas tool', () => {
+describe('MCP Server – search_database_schemas tool', () => {
     let client: Client;
     let cleanup: () => Promise<void>;
 
@@ -320,7 +321,7 @@ describe('MCP Server – search_schemas tool', () => {
 
     it('should return search results', async () => {
         const result = await client.callTool({
-            name: 'search_schemas',
+            name: 'search_database_schemas',
             arguments: { query: 'user accounts', limit: 5 },
         });
 
@@ -333,7 +334,7 @@ describe('MCP Server – search_schemas tool', () => {
 
     it('should respect limit parameter', async () => {
         const result = await client.callTool({
-            name: 'search_schemas',
+            name: 'search_database_schemas',
             arguments: { query: 'test', limit: 1 },
         });
 
@@ -343,7 +344,7 @@ describe('MCP Server – search_schemas tool', () => {
 
     it('should filter by database when provided', async () => {
         const result = await client.callTool({
-            name: 'search_schemas',
+            name: 'search_database_schemas',
             arguments: { query: 'test', database: 'testdb' },
         });
 
@@ -352,9 +353,9 @@ describe('MCP Server – search_schemas tool', () => {
     });
 });
 
-// ── Tests: get_schema tool handler ──────────────────────────────────────────
+// ── Tests: get_database_schema tool handler ──────────────────────────────────────────
 
-describe('MCP Server – get_schema tool', () => {
+describe('MCP Server – get_database_schema tool', () => {
     let client: Client;
     let cleanup: () => Promise<void>;
 
@@ -370,7 +371,7 @@ describe('MCP Server – get_schema tool', () => {
 
     it('should return schema details for existing table', async () => {
         const result = await client.callTool({
-            name: 'get_schema',
+            name: 'get_database_schema',
             arguments: { database: 'testdb', schema: 'public', name: 'users' },
         });
 
@@ -381,7 +382,7 @@ describe('MCP Server – get_schema tool', () => {
 
     it('should use default schema "public" when not provided', async () => {
         const result = await client.callTool({
-            name: 'get_schema',
+            name: 'get_database_schema',
             arguments: { database: 'testdb', name: 'users' },
         });
 
@@ -391,7 +392,7 @@ describe('MCP Server – get_schema tool', () => {
 
     it('should return error for non-existent table', async () => {
         const result = await client.callTool({
-            name: 'get_schema',
+            name: 'get_database_schema',
             arguments: { database: 'testdb', schema: 'public', name: 'nonexistent' },
         });
 
@@ -445,9 +446,9 @@ describe('MCP Server – list_databases tool', () => {
     });
 });
 
-// ── Tests: list_schemas tool handler ────────────────────────────────────────
+// ── Tests: list_database_schemas tool handler ────────────────────────────────────────
 
-describe('MCP Server – list_schemas tool', () => {
+describe('MCP Server – list_database_schemas tool', () => {
     let client: Client;
     let cleanup: () => Promise<void>;
 
@@ -463,7 +464,7 @@ describe('MCP Server – list_schemas tool', () => {
 
     it('should return schema summaries for a database', async () => {
         const result = await client.callTool({
-            name: 'list_schemas',
+            name: 'list_database_schemas',
             arguments: { database: 'testdb' },
         });
 
@@ -581,9 +582,9 @@ describe('MCP Server – get_recent_changes tool', () => {
     });
 });
 
-// ── Tests: scan_database tool handler ───────────────────────────────────────
+// ── Tests: rescan_schemas tool handler ───────────────────────────────────────
 
-describe('MCP Server – scan_database tool', () => {
+describe('MCP Server – rescan_schemas tool', () => {
     let client: Client;
     let cleanup: () => Promise<void>;
 
@@ -599,13 +600,41 @@ describe('MCP Server – scan_database tool', () => {
 
     it('should trigger a scan and return results', async () => {
         const result = await client.callTool({
-            name: 'scan_database',
+            name: 'rescan_schemas',
             arguments: {},
         });
 
         const parsed = parseToolResult(result as { content: unknown[] }) as Record<string, unknown>;
         assert.equal(parsed.message, 'Scan completed successfully');
         assert.equal(parsed.totalSchemas, 2);
+    });
+});
+
+// ── Tests: get_schema_stats tool handler ────────────────────────────────────
+
+describe('MCP Server – get_schema_stats tool', () => {
+    let client: Client;
+    let cleanup: () => Promise<void>;
+
+    before(async () => {
+        const pair = await createConnectedPair();
+        client = pair.client;
+        cleanup = pair.cleanup;
+    });
+
+    after(async () => {
+        await cleanup();
+    });
+
+    it('should return service statistics', async () => {
+        const result = await client.callTool({
+            name: 'get_schema_stats',
+            arguments: {},
+        });
+
+        const parsed = parseToolResult(result as { content: unknown[] }) as Record<string, unknown>;
+        assert.equal(parsed.totalSchemas, 2);
+        assert.deepEqual(parsed.databases, { testdb: 2 });
     });
 });
 
