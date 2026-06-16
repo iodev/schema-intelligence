@@ -5,7 +5,9 @@ yarn.lock
 pnpm-lock.yaml
 
 # Build output
-dist/
+# Note: dist/ is committed so consumers via 'github:iodev/schema-intelligence'
+# can import without running a build. yarn v1 doesn't install devDependencies
+# for git-URL deps, so the 'prepare' script can't compile TypeScript on its own.
 dist-test/
 *.tsbuildinfo
 
